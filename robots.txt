@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /Tubtime/
+Allow: /
+
+Sitemap: https://tubtime.app/sitemap.xml

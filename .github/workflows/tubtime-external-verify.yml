@@ -1,0 +1,32 @@
+name: Temporary TubTime external HTTPS verification
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Verify reviewed public files with normal TLS
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures,hashlib,json,urllib.request
+          rows = [('https://tubtime.app/', '2b0d92c8bf451e4098802e8ecf98694bd37997ed03f93b2225f098f3546ea7d4'), ('https://tubtime.app/robots.txt', '1d30fcc26262c9b7425b12e70edc4a1eff3590ffba946fabc316d9ec45eea386'), ('https://tubtime.app/sitemap.xml', 'e58ee3ac4fa0a042879f681bf337b87ba20540e9284c7d4dda3b2bd33225f043'), ('https://tubtime.app/Tubtime/assets/01-home.png', '43293a747d12e941dea684e180db7f13e8394bc4d361aba4b74bc3ba38b657e4'), ('https://tubtime.app/Tubtime/assets/02-plus-sample-family.png', '00a735d34992c91b597cb75ee2029099c305408496747d3a8433fa37b876e451'), ('https://tubtime.app/Tubtime/assets/04-full-history.png', '7d83ea24c901b56df45076ca4aeae085550fc346115a23f58cebae3b142d892a'), ('https://tubtime.app/Tubtime/assets/duck-sunny.png', 'ffb12bb0d4cdc5027bfbc498cb69c3cd88e3adc8c572b52e2baf95e063ff0d2f'), ('https://tubtime.app/Tubtime/assets/favicon.svg', '6da17f25913770eb673c28d256613249884bf2c43b8c3393264a6655ca38d00c'), ('https://tubtime.app/Tubtime/assets/google-play-badge.png', 'a7dbeba4623dd255798dd1159e543cdbeeb9e43faa6db7f859b0f9ed3699932c'), ('https://tubtime.app/Tubtime/guide.css', 'ca7c58d784b888da3476d59cfee51007a1c6949e7a0b58f733a7517ed53dda6e'), ('https://tubtime.app/Tubtime/index.html', '2b0d92c8bf451e4098802e8ecf98694bd37997ed03f93b2225f098f3546ea7d4'), ('https://tubtime.app/Tubtime/landing.css', 'f082d98925079b72349dc768b34df47b89309b9f2a034ba23cdde5eac923fdfa'), ('https://tubtime.app/Tubtime/privacy.html', '26d838c051213906e698a8da98255bb5f5049c9e67ac81b7aa88b25830f23415'), ('https://tubtime.app/Tubtime/styles.css', '9ebb38db29df1927ae0f16fee7b60a79594443aeb2546d0d1b67a528e5b76464'), ('https://tubtime.app/Tubtime/terms.html', 'd95b7836a766ad3382d4dfbd3cbb4c1b87e27fdf3dd63e400baa10500b2acb27'), ('https://tubtime.app/Tubtime/wash-log-guide.html', '4e780a02352618d0cf5fd7232a6d56f41e977773b915b1846ff301d964ed9bd2'), ('https://tubtime.app/Tubtime/weekly-wash-record.html', '20d509249964f97b41513d3a981d0f5fc80d93818dbb13762d0b2a934f1fec60')]
+          
+          def check(item):
+              url, expected = item
+              try:
+                  with urllib.request.urlopen(url, timeout=20) as response:
+                      data = response.read()
+                      actual = hashlib.sha256(data).hexdigest()
+                      return {"url":url,"status":response.status,"sha256":actual,"pass":actual==expected}
+              except Exception as error:
+                  return {"url":url,"pass":False,"error":str(error)}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              results=list(pool.map(check,rows))
+          with urllib.request.urlopen("https://www.tubtime.app/",timeout=20) as response:
+              results.append({"url":"https://www.tubtime.app/","final_url":response.url,"pass":response.url=="https://tubtime.app/" and hashlib.sha256(response.read()).hexdigest()=='2b0d92c8bf451e4098802e8ecf98694bd37997ed03f93b2225f098f3546ea7d4'})
+          print(json.dumps(results,indent=2))
+          assert all(result["pass"] for result in results),"Public HTTPS/content verification failed"
+          PY
